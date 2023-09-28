@@ -1,13 +1,19 @@
+import datetime
 import types
+
+import FSM
 import config
-from aiogram import Router, html, Bot
+from aiogram import Router, html, Bot, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message
+from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, ContentType
+from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from markups import client_markup as client_markup
-from database import User, Subscribe
-# from keyboards import generate_balls
+from database import User, Subscribe, Payments
+from email_validate import validate
+import phonenumbers
+
 
 commands_router = Router()
 
@@ -17,7 +23,7 @@ async def cmd_start(message: Message, session: AsyncSession, bot: Bot):
     user_channel = await bot.get_chat_member(config.CHANNEL_ID, message.from_user.id)
     if user_channel.status == "left":
         await message.answer("Пожалуйста, подпишитесь на канал")
-        user = User(user_id=message.from_user.id)
+        user = User(user_id=message.from_user.id, username=message.from_user.username)
         await session.merge(user)
     else:
         result = await session.execute(select(User).where(User.user_id == message.from_user.id))
@@ -26,7 +32,7 @@ async def cmd_start(message: Message, session: AsyncSession, bot: Bot):
             await session.execute(update(User).where(User.user_id == message.from_user.id).values(is_subscribe=True))
 
         else:
-            user = User(user_id=message.from_user.id, is_subscribe=True)
+            user = User(user_id=message.from_user.id, username=message.from_user.username, is_subscribe=True)
             await session.merge(user)
 
         result = await session.execute(
@@ -34,12 +40,153 @@ async def cmd_start(message: Message, session: AsyncSession, bot: Bot):
         subscribe = result.one_or_none()
         if subscribe is not None:
             # Вывод главного меню
-            pass
+            await message.answer_photo(photo=config.file_id_main_menu, reply_markup=client_markup.create_markup_main_menu())
         else:
             # Предложение купить подписку
             await message.answer("Выберите тариф", reply_markup=client_markup.create_markup_buy_rate())
 
-
     await session.commit()
     # await message.answer("Hello!")
 
+
+@commands_router.message(FSM.FSMClient.get_fio_user)
+async def get_fio_user(message: Message, state: FSMContext) -> None:
+    user_fio = message.text.strip()
+    await state.update_data(user_fio=user_fio)
+    await state.set_state(FSM.FSMClient.get_email)
+    await message.answer("Теперь введите свою электронную почту")
+
+
+@commands_router.message(FSM.FSMClient.get_email)
+async def get_email_user(message: Message, state: FSMContext) -> None:
+    email = message.text.strip()
+    is_validate = validate(
+        email_address=email.strip(),
+        check_format=True,
+        check_blacklist=False,
+        check_dns=False,
+        dns_timeout=10,
+        check_smtp=False,
+        smtp_debug=False)
+    if is_validate:
+        await state.update_data(email=email)
+        await state.set_state(FSM.FSMClient.get_phone)
+        await message.answer("Теперь введите свой номер телефона")
+    else:
+        await message.answer("Электронная почта неверного формата, повторите ввод!")
+
+
+@commands_router.message(FSM.FSMClient.get_phone)
+async def get_phone_user(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    phone = message.text.strip()
+    try:
+        phone_number = phonenumbers.parse(phone)
+        if phonenumbers.is_valid_number(phone_number):
+            # Создаем тикет для оплаты
+            data = await state.get_data()
+            duration = data["duration"]
+
+            await message.answer_invoice(
+                title=f"Подписка на канал",
+                description="Подписка",
+                provider_token=config.YOKASSA_TOKEN,
+                currency="RUB",
+                prices=[LabeledPrice(label="Подписка", amount=config.month_1_price)],
+                start_parameter="pay",
+                payload=f"subscribe_{duration}_month",
+
+            )
+
+            # Обновляем данные пользователя
+            await session.execute(update(User).where(User.user_id == message.from_user.id).values(fio=data["user_fio"], phone=phone, email=data["email"]))
+            await session.commit()
+            await state.clear()
+        else:
+            await message.answer("Введите корректный номер телефона!")
+    except Exception as ex:
+        print(ex)
+        await message.answer("Введите корректный номер телефона!")
+
+
+@commands_router.pre_checkout_query()
+async def checkout(pre_checkout_query: PreCheckoutQuery):
+    await pre_checkout_query.answer(
+        ok=True,
+        error_message="Что-то пошло не так, попробуйте еще раз"
+    )
+
+
+@commands_router.message(F.successful_payment)
+async def successful_payment(message: Message, session: AsyncSession):
+    payload = message.successful_payment.invoice_payload
+    count_month = payload.split("_")[-2]
+    value = message.successful_payment.total_amount / 100
+    await session.merge(Payments(user_id=message.from_user.id, value=value))
+    result = await session.execute(select(Subscribe).where(Subscribe.user_id == message.from_user.id and Subscribe.is_active == True))
+    is_subscribe = result.one_or_none()
+    if is_subscribe is None:
+        # Добавляем подписку пользователя
+        await session.merge(Subscribe(user_id=message.from_user.id, date_end=datetime.datetime.now() + datetime.timedelta(days=30 * int(count_month))))
+        await message.answer("Вы успешно оплатили подписку!")
+    else:
+        # Продляем подписку
+        await session.execute(update(User).where(User.user_id == message.from_user.id).values(is_subscribe=True))
+        await session.execute(update(Subscribe).where(Subscribe.user_id == message.from_user.id and Subscribe.is_active == True).values(date_end=Subscribe.date_end + datetime.timedelta(days=30 * int(count_month))))
+        await message.answer("Ваша подписка продлена")
+    await session.commit()
+
+
+@commands_router.message(FSM.FSMClient.get_new_fio)
+async def change_fio(message: Message, session: AsyncSession, state: FSMContext):
+    fio = message.text.strip()
+    await session.execute(update(User).where(User.user_id == message.from_user.id).values(fio=fio))
+    await message.answer("ФИО было успешно изменено!", reply_markup=client_markup.create_markup_change_data_account())
+    await state.clear()
+    await session.commit()
+
+
+@commands_router.message(FSM.FSMClient.get_new_email)
+async def change_email(message: Message, session: AsyncSession, state: FSMContext):
+    email = message.text.strip()
+    is_validate = validate(
+        email_address=email.strip(),
+        check_format=True,
+        check_blacklist=False,
+        check_dns=False,
+        dns_timeout=10,
+        check_smtp=False,
+        smtp_debug=False)
+    if is_validate:
+        await session.execute(update(User).where(User.user_id == message.from_user.id).values(email=email))
+        await message.answer("Почта была успешно изменена!",
+                             reply_markup=client_markup.create_markup_change_data_account())
+        await state.clear()
+        await session.commit()
+    else:
+        await message.answer("Электронная почта неверного формата, повторите ввод!")
+
+
+@commands_router.message(FSM.FSMClient.get_new_phone)
+async def change_phone(message: Message, session: AsyncSession, state: FSMContext):
+    phone = message.text.strip()
+    try:
+        phone_number = phonenumbers.parse(phone)
+        if phonenumbers.is_valid_number(phone_number):
+            # Обновляем данные пользователя
+            await session.execute(update(User).where(User.user_id == message.from_user.id).values(phone=phone))
+            await message.answer("Телефон был успешно изменен!",
+                                 reply_markup=client_markup.create_markup_change_data_account())
+            await session.commit()
+            await state.clear()
+        else:
+            await message.answer("Введите корректный номер телефона!")
+    except Exception as ex:
+        print(ex)
+        await message.answer("Введите корректный номер телефона!")
+
+
+
+
+# @commands_router.message(F.photo)
+# async def get_photo(message: Message):
+#     print(message.photo)

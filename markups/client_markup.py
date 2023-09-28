@@ -8,3 +8,37 @@ def create_markup_buy_rate():
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
+
+
+def create_markup_main_menu():
+    buttons = [
+        [types.InlineKeyboardButton(text="Памятка", callback_data="memo")],
+        [types.InlineKeyboardButton(text="Подбор кодов", callback_data="select_of_code")],
+        [types.InlineKeyboardButton(text="Атлас", callback_data="atlas")],
+        [types.InlineKeyboardButton(text="Личный кабинет", callback_data="personal_account")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_personal_account():
+    buttons = [
+        [types.InlineKeyboardButton(text="Изменить данные аккаунта", callback_data="change_data_account")],
+        [types.InlineKeyboardButton(text="Продлить подписку", callback_data="extend_subscribe")],
+        [types.InlineKeyboardButton(text="Назад", callback_data="back")],
+
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_change_data_account():
+    buttons = [
+        [types.InlineKeyboardButton(text="ФИО", callback_data="change_fio")],
+        [types.InlineKeyboardButton(text="Телефон", callback_data="change_phone")],
+        [types.InlineKeyboardButton(text="Почта", callback_data="change_email")],
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu", switch_inline_query=)],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+

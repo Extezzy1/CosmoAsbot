@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from middlewares import DbSessionMiddleware
 from handlers.commands import commands_router
 from handlers.callbacks import callbacks_router
+from handlers.admin import admin_router
 import config
-from database import BaseModel, create_async_engine, proceed_schemas
+from database import BaseModel, create_async_engine
 
 
 async def main():
@@ -31,12 +32,10 @@ async def main():
     session_maker = async_sessionmaker(async_engine, expire_on_commit=True)
     bot = Bot(token=config.BOT_TOKEN, parse_mode=ParseMode.HTML)
     dp = Dispatcher(storage=MemoryStorage())
-    dp.include_router(callbacks_router)
-    dp.include_router(commands_router)
+    dp.include_routers(callbacks_router, commands_router, admin_router)
     dp.update.middleware(DbSessionMiddleware(session_pool=session_maker))
     # dp.callback_query
-    await proceed_schemas(async_engine, BaseModel.metadata)
-
+    # await proceed_schemas(async_engine, BaseModel.metadata)
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 

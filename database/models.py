@@ -3,7 +3,7 @@ import datetime
 from sqlalchemy.orm import relationship, mapped_column
 
 from .base import BaseModel
-from sqlalchemy import Column, Integer, VARCHAR, Date, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, VARCHAR, Date, Boolean, ForeignKey, DateTime
 
 
 class User(BaseModel):
@@ -29,6 +29,16 @@ class Subscribe(BaseModel):
     subscribe_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
     user_id = mapped_column(ForeignKey("users.user_id"))
     is_active = Column(Boolean, nullable=False, default=True)
-    date_start = Column(Date, default=datetime.datetime.now(), nullable=False)
-    date_end = Column(Date, nullable=False)
+    date_start = Column(DateTime, default=datetime.datetime.now(), nullable=False)
+    date_end = Column(DateTime, nullable=False)
+
+
+class Payments(BaseModel):
+
+    __tablename__ = "payments"
+
+    payment_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
+    user_id = mapped_column(ForeignKey("users.user_id"))
+    value = Column(Integer, nullable=False)
+
 
