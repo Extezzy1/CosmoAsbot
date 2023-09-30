@@ -3,7 +3,7 @@ import datetime
 from sqlalchemy.orm import relationship, mapped_column
 
 from .base import BaseModel
-from sqlalchemy import Column, Integer, VARCHAR, Date, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, VARCHAR, Date, Boolean, ForeignKey, DateTime, Text
 
 
 class User(BaseModel):
@@ -42,3 +42,20 @@ class Payments(BaseModel):
     value = Column(Integer, nullable=False)
 
 
+
+class Procedures(BaseModel):
+
+    __tablename__ = "procedures"
+
+    procedure_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
+    procedure_name = Column(Text, nullable=False)
+
+
+class SubProcedures(BaseModel):
+
+    __tablename__ = "sub_procedures"
+    sub_procedure_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
+    procedure_id = mapped_column(ForeignKey("procedures.procedure_id"))
+    procedure_subname = Column(Text, nullable=False)
+    procedure_code = Column(VARCHAR(255), nullable=False)
+    procedure_description = Column(Text, nullable=True)

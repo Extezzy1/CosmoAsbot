@@ -1,16 +1,18 @@
 import datetime
 import types
+from random import randrange
 
 import FSM
 import config
 from aiogram import Router, html, Bot, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, ContentType
+from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, ContentType, InlineQuery, InlineQueryResultArticle, \
+    InputTextMessageContent
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from markups import client_markup as client_markup
-from database import User, Subscribe, Payments
+from database import User, Subscribe, Payments, Procedures, SubProcedures
 from email_validate import validate
 import phonenumbers
 
@@ -185,7 +187,49 @@ async def change_phone(message: Message, session: AsyncSession, state: FSMContex
         await message.answer("Введите корректный номер телефона!")
 
 
+@commands_router.inline_query()
+async def select_of_codes(query: InlineQuery, session: AsyncSession):
+    query_text_split = query.query.split(" ")
+    query_answer_items = []
+    procedures_result = await session.execute(select(Procedures))
+    all_procedures = procedures_result.fetchall()
 
+
+    for word in query_text_split:
+        print(word)
+        for item in all_procedures:
+            if word.lower() in item[0].procedure_name.lower():
+                query_answer_items.append(item[0])
+
+    articles = []
+    for item in query_answer_items:
+        if len(articles) <= 9:
+            articles.append(InlineQueryResultArticle(
+                id=str(randrange(1, 999999999)),
+                title=item.procedure_name,
+                input_message_content=InputTextMessageContent(message_text=f'/adProc {item.procedure_name}')
+            ))
+        else:
+            break
+    await query.answer(articles, cache_time=1, is_personal=True)
+
+@commands_router.message(Command("adProc"))
+async def adProc(message: Message, session: AsyncSession):
+    text = message.text
+    text_without_command = " ".join(text.split(" ")[1:])
+    procedure_id_result = await session.execute(select(Procedures).where(Procedures.procedure_name == text_without_command))
+    procedure_id = procedure_id_result.fetchmany(1)[0][0].procedure_id
+    sub_procedures_result = await session.execute(select(SubProcedures).where(SubProcedures.procedure_id == procedure_id))
+    sub_procedures = sub_procedures_result.fetchall()
+
+    if len(sub_procedures) > 1:
+        await message.answer("Выберите подпроцедуру", reply_markup=client_markup.create_markup_subprocedures(sub_procedures))
+    else:
+        sub_procedure = sub_procedures[0][0]
+        msg = f"Наименование процедуры: <b>{sub_procedure.procedure_subname}</b>\n" \
+              f"Номеклатура: <b>{sub_procedure.procedure_code}</b>\n\n" \
+              f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
+        await message.answer(msg)
 
 # @commands_router.message(F.photo)
 # async def get_photo(message: Message):

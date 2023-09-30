@@ -2,12 +2,12 @@ import types
 import config
 from aiogram import Router, html, Bot, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery, LabeledPrice
+from aiogram.types import Message, CallbackQuery, LabeledPrice, InlineQuery
 from sqlalchemy import select, update
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from markups import client_markup as client_markup
-from database import User, Subscribe
+from database import User, Subscribe, SubProcedures
 import FSM
 
 callbacks_router = Router()
@@ -80,4 +80,15 @@ async def extend_subscribe(callback: CallbackQuery):
 
 @callbacks_router.callback_query(F.data == "select_of_code")
 async def select_of_code(callback: CallbackQuery):
-    pass
+    await callback.message.answer_photo(photo=config.file_id_select_of_code, reply_markup=client_markup.create_markup_select_of_code())
+
+
+@callbacks_router.callback_query(F.data.startswith("sub_procedure_"))
+async def sub_procedure(callback: CallbackQuery, session: AsyncSession):
+    sub_procedure_id = callback.data.split("_")[-1]
+    sub_procedure_result = await session.execute(select(SubProcedures).where(SubProcedures.sub_procedure_id == int(sub_procedure_id)))
+    sub_procedure = sub_procedure_result.fetchmany(1)[0][0]
+    msg = f"Наименование процедуры: <b>{sub_procedure.procedure_subname}</b>\n" \
+          f"Номеклатура: <b>{sub_procedure.procedure_code}</b>\n\n" \
+          f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
+    await callback.message.answer(msg)

@@ -37,8 +37,21 @@ def create_markup_change_data_account():
         [types.InlineKeyboardButton(text="ФИО", callback_data="change_fio")],
         [types.InlineKeyboardButton(text="Телефон", callback_data="change_phone")],
         [types.InlineKeyboardButton(text="Почта", callback_data="change_email")],
-        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu", switch_inline_query=)],
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu")],
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
 
+
+def create_markup_select_of_code():
+    buttons = [
+        [types.InlineKeyboardButton(text="Выбрать процедуру", switch_inline_query_current_chat="")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_subprocedures(sub_procedures):
+    buttons = [[types.InlineKeyboardButton(text=procedure[0].procedure_subname, callback_data=f"sub_procedure_{procedure[0].sub_procedure_id}")] for procedure in sub_procedures]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
