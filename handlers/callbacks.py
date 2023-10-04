@@ -79,8 +79,9 @@ async def extend_subscribe(callback: CallbackQuery):
 
 
 @callbacks_router.callback_query(F.data == "select_of_code")
-async def select_of_code(callback: CallbackQuery):
+async def select_of_code(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer_photo(photo=config.file_id_select_of_code, reply_markup=client_markup.create_markup_select_of_code())
+    await state.set_state(FSM.FSMClient.select_of_codes)
 
 
 @callbacks_router.callback_query(F.data.startswith("sub_procedure_"))
@@ -92,3 +93,16 @@ async def sub_procedure(callback: CallbackQuery, session: AsyncSession):
           f"Номеклатура: <b>{sub_procedure.procedure_code}</b>\n\n" \
           f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
     await callback.message.answer(msg)
+
+
+@callbacks_router.callback_query(F.data.startswith("atlas"))
+async def atlas(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer_photo(photo=config.file_id_atlas, reply_markup=client_markup.create_markup_atlas())
+    await state.set_state(FSM.FSMClient.atlas)
+
+
+@callbacks_router.callback_query(F.data.startswith("memo"))
+async def memo(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer_photo(photo=config.file_id_memo, reply_markup=client_markup.create_markup_atlas())
+    await state.set_state(FSM.FSMClient.memo)
+

@@ -9,3 +9,7 @@ class FSMClient(StatesGroup):
     get_new_fio = State()
     get_new_email = State()
     get_new_phone = State()
+
+    select_of_codes = State()
+    atlas = State()
+    memo = State()

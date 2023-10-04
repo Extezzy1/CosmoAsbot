@@ -2,6 +2,8 @@ import datetime
 import types
 from random import randrange
 
+from aiogram.utils.media_group import MediaGroupBuilder
+
 import FSM
 import config
 from aiogram import Router, html, Bot, F
@@ -12,13 +14,17 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from markups import client_markup as client_markup
-from database import User, Subscribe, Payments, Procedures, SubProcedures
+from database import User, Subscribe, Payments, Procedures, SubProcedures, Atlas, AtlasPhotos
 from email_validate import validate
 import phonenumbers
 
 
 commands_router = Router()
 
+
+# @commands_router.message(F.photo)
+# async def get_photo(message: Message):
+#     print(message.photo)
 
 @commands_router.message(CommandStart())
 async def cmd_start(message: Message, session: AsyncSession, bot: Bot):
@@ -187,13 +193,13 @@ async def change_phone(message: Message, session: AsyncSession, state: FSMContex
         await message.answer("Введите корректный номер телефона!")
 
 
-@commands_router.inline_query()
-async def select_of_codes(query: InlineQuery, session: AsyncSession):
+@commands_router.inline_query(FSM.FSMClient.select_of_codes)
+async def select_of_codes(query: InlineQuery, session: AsyncSession, state: FSMContext):
+    print(state.get_state())
     query_text_split = query.query.split(" ")
     query_answer_items = []
     procedures_result = await session.execute(select(Procedures))
     all_procedures = procedures_result.fetchall()
-
 
     for word in query_text_split:
         print(word)
@@ -204,6 +210,7 @@ async def select_of_codes(query: InlineQuery, session: AsyncSession):
     articles = []
     for item in query_answer_items:
         if len(articles) <= 9:
+
             articles.append(InlineQueryResultArticle(
                 id=str(randrange(1, 999999999)),
                 title=item.procedure_name,
@@ -212,6 +219,8 @@ async def select_of_codes(query: InlineQuery, session: AsyncSession):
         else:
             break
     await query.answer(articles, cache_time=1, is_personal=True)
+    await state.clear()
+
 
 @commands_router.message(Command("adProc"))
 async def adProc(message: Message, session: AsyncSession):
@@ -231,6 +240,89 @@ async def adProc(message: Message, session: AsyncSession):
               f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
         await message.answer(msg)
 
-# @commands_router.message(F.photo)
-# async def get_photo(message: Message):
-#     print(message.photo)
+
+@commands_router.inline_query(FSM.FSMClient.atlas)
+async def atlas(query: InlineQuery, session: AsyncSession, state: FSMContext):
+    query_text_split = query.query.split(" ")
+    query_answer_items = []
+    atlas_result = await session.execute(select(Atlas))
+    all_atlas_entries = atlas_result.fetchall()
+
+    for word in query_text_split:
+        print(word)
+        for item in all_atlas_entries:
+
+            if word.lower() in item[0].atlas_entry_text.lower():
+                query_answer_items.append(item[0])
+
+    articles = []
+    for item in query_answer_items:
+        if len(articles) <= 9:
+            articles.append(InlineQueryResultArticle(
+                id=str(randrange(1, 999999999)),
+                title=item.atlas_entry_text,
+                input_message_content=InputTextMessageContent(message_text=f'/adSubj {item.atlas_entry_text}')
+            ))
+        else:
+            break
+    await query.answer(articles, cache_time=1, is_personal=True)
+    await state.clear()
+
+
+@commands_router.message(Command("adSubj"))
+async def adSubj(message: Message, session: AsyncSession):
+    text = message.text
+    text_without_command = " ".join(text.split(" ")[1:])
+    atlas_entry_result = await session.execute(select(Atlas).where(Atlas.atlas_entry_text == text_without_command))
+    atlas_entry_id = atlas_entry_result.fetchmany(1)[0][0].atlas_entry_id
+    atlas_photos_result = await session.execute(select(AtlasPhotos).where(AtlasPhotos.altas_entry_id == atlas_entry_id))
+    atlas_photos = atlas_photos_result.fetchall()
+
+    media_group = MediaGroupBuilder()
+    for photo in atlas_photos:
+        media_group.add_photo(media=photo[0].atlas_photo_id)
+
+    await message.answer_media_group(media_group.build())
+
+
+@commands_router.inline_query(FSM.FSMClient.memo)
+async def memo(query: InlineQuery, session: AsyncSession, state: FSMContext):
+    query_text_split = query.query.split(" ")
+    query_answer_items = []
+    procedures_result = await session.execute(select(Procedures))
+    all_procedures = procedures_result.fetchall()
+
+    for word in query_text_split:
+        print(word)
+        for item in all_procedures:
+            if word.lower() in item[0].procedure_name.lower():
+                query_answer_items.append(item[0])
+
+    articles = []
+    for item in query_answer_items:
+        if len(articles) <= 9:
+
+            articles.append(InlineQueryResultArticle(
+                id=str(randrange(1, 999999999)),
+                title=item.procedure_name,
+                input_message_content=InputTextMessageContent(message_text=f'/adProcMemo {item.procedure_name}')
+            ))
+        else:
+            break
+    await query.answer(articles, cache_time=1, is_personal=True)
+    await state.clear()
+
+
+@commands_router.message(Command("adProcMemo"))
+async def adProcMemo(message: Message, session: AsyncSession):
+    text = message.text
+    text_without_command = " ".join(text.split(" ")[1:])
+    procedure_id_result = await session.execute(select(Procedures).where(Procedures.procedure_name == text_without_command))
+    procedure_id = procedure_id_result.fetchmany(1)[0][0].procedure_id
+    sub_procedures_result = await session.execute(select(SubProcedures).where(SubProcedures.procedure_id == procedure_id))
+    sub_procedures = sub_procedures_result.fetchall()
+
+    if len(sub_procedures) > 1:
+        await message.answer("Выберите подпроцедуру", reply_markup=client_markup.create_markup_subprocedures(sub_procedures))
+    else:
+        pass

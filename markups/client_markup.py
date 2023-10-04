@@ -1,5 +1,6 @@
 from aiogram import types
 
+
 def create_markup_buy_rate():
     buttons = [
         [types.InlineKeyboardButton(text="1 месяц", callback_data="buy_rate_1_month")],
@@ -49,6 +50,24 @@ def create_markup_select_of_code():
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
+
+
+def create_markup_atlas():
+    buttons = [
+        [types.InlineKeyboardButton(text="Выбрать тему", switch_inline_query_current_chat="")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_memo():
+    buttons = [
+        [types.InlineKeyboardButton(text="Выбрать процедуру", switch_inline_query_current_chat="")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
 
 
 def create_markup_subprocedures(sub_procedures):

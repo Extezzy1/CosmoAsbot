@@ -59,3 +59,20 @@ class SubProcedures(BaseModel):
     procedure_subname = Column(Text, nullable=False)
     procedure_code = Column(VARCHAR(255), nullable=False)
     procedure_description = Column(Text, nullable=True)
+
+
+class Atlas(BaseModel):
+
+    __tablename__ = "atlas"
+
+    atlas_entry_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
+    atlas_entry_text = Column(VARCHAR(255), nullable=False)
+
+
+class AtlasPhotos(BaseModel):
+
+    __tablename__ = "atlas_photos"
+
+    altas_entry_id = mapped_column(ForeignKey("atlas.atlas_entry_id"))
+    atlas_photo_id = Column(Text, nullable=False, primary_key=True, unique=True)
+
