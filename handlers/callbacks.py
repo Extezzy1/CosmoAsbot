@@ -106,3 +106,22 @@ async def memo(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer_photo(photo=config.file_id_memo, reply_markup=client_markup.create_markup_atlas())
     await state.set_state(FSM.FSMClient.memo)
 
+
+@callbacks_router.callback_query(F.data == "add_comment")
+async def add_comment(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(FSM.FSMClient.add_comment)
+    await callback.message.answer("Введите комментарий")
+
+
+@callbacks_router.callback_query(F.data == "accept")
+async def accept(callback: CallbackQuery):
+    await callback.message.answer("Отлично!", reply_markup=client_markup.create_markup_memo_create_pdf())
+
+
+@callbacks_router.callback_query(F.data == "create_pdf")
+async def create_pdf(callback: CallbackQuery, state: FSMContext):
+    pass
+
+@callbacks_router.callback_query(F.data == "add_procedure")
+async def add_procedure(callback: CallbackQuery, state: FSMContext):
+    pass

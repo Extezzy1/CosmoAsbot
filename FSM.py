@@ -13,3 +13,4 @@ class FSMClient(StatesGroup):
     select_of_codes = State()
     atlas = State()
     memo = State()
+    add_comment = State()

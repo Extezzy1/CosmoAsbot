@@ -76,3 +76,21 @@ class AtlasPhotos(BaseModel):
     altas_entry_id = mapped_column(ForeignKey("atlas.atlas_entry_id"))
     atlas_photo_id = Column(Text, nullable=False, primary_key=True, unique=True)
 
+
+class MemoProcedure(BaseModel):
+
+    __tablename__ = "memo_procedure"
+    procedure_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
+    procedure_title = Column(Text, nullable=False, primary_key=True, unique=True)
+
+
+class Memo(BaseModel):
+
+    __tablename__ = "memo"
+
+    memo_id = Column(Integer, nullable=False, autoincrement=True, unique=True, primary_key=True)
+    procedure_id = mapped_column(ForeignKey("memo_procedure.procedure_id"))
+    memo_title = Column(Text, nullable=False)
+    memo_text = Column(Text, nullable=False)
+
+

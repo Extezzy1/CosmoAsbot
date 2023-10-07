@@ -14,7 +14,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from markups import client_markup as client_markup
-from database import User, Subscribe, Payments, Procedures, SubProcedures, Atlas, AtlasPhotos
+from database import User, Subscribe, Payments, Procedures, SubProcedures, Atlas, AtlasPhotos, Memo
 from email_validate import validate
 import phonenumbers
 
@@ -22,9 +22,9 @@ import phonenumbers
 commands_router = Router()
 
 
-# @commands_router.message(F.photo)
-# async def get_photo(message: Message):
-#     print(message.photo)
+@commands_router.message(F.photo)
+async def get_photo(message: Message):
+    print(message.photo)
 
 @commands_router.message(CommandStart())
 async def cmd_start(message: Message, session: AsyncSession, bot: Bot):
@@ -219,11 +219,11 @@ async def select_of_codes(query: InlineQuery, session: AsyncSession, state: FSMC
         else:
             break
     await query.answer(articles, cache_time=1, is_personal=True)
-    await state.clear()
 
 
 @commands_router.message(Command("adProc"))
-async def adProc(message: Message, session: AsyncSession):
+async def adProc(message: Message, session: AsyncSession, state: FSMContext):
+    await state.clear()
     text = message.text
     text_without_command = " ".join(text.split(" ")[1:])
     procedure_id_result = await session.execute(select(Procedures).where(Procedures.procedure_name == text_without_command))
@@ -266,11 +266,11 @@ async def atlas(query: InlineQuery, session: AsyncSession, state: FSMContext):
         else:
             break
     await query.answer(articles, cache_time=1, is_personal=True)
-    await state.clear()
 
 
 @commands_router.message(Command("adSubj"))
-async def adSubj(message: Message, session: AsyncSession):
+async def adSubj(message: Message, session: AsyncSession, state: FSMContext):
+    await state.clear()
     text = message.text
     text_without_command = " ".join(text.split(" ")[1:])
     atlas_entry_result = await session.execute(select(Atlas).where(Atlas.atlas_entry_text == text_without_command))
@@ -310,11 +310,10 @@ async def memo(query: InlineQuery, session: AsyncSession, state: FSMContext):
         else:
             break
     await query.answer(articles, cache_time=1, is_personal=True)
-    await state.clear()
 
 
 @commands_router.message(Command("adProcMemo"))
-async def adProcMemo(message: Message, session: AsyncSession):
+async def adProcMemo(message: Message, session: AsyncSession, state: FSMContext):
     text = message.text
     text_without_command = " ".join(text.split(" ")[1:])
     procedure_id_result = await session.execute(select(Procedures).where(Procedures.procedure_name == text_without_command))
@@ -325,4 +324,17 @@ async def adProcMemo(message: Message, session: AsyncSession):
     if len(sub_procedures) > 1:
         await message.answer("Выберите подпроцедуру", reply_markup=client_markup.create_markup_subprocedures(sub_procedures))
     else:
-        pass
+        # Вывод текста рекомендации
+        sub_procedure_id = sub_procedures[0][0].sub_procedure_id
+        memo_result = await session.execute(select(Memo).where(Memo.sub_procedure_id == sub_procedure_id))
+        memo_text = memo_result.fetchall()[0][0].memo_text
+        await message.answer(memo_text, reply_markup=client_markup.create_markup_memo_recommendations())
+
+
+@commands_router.message(FSM.FSMClient.add_comment)
+async def get_comment(message: Message, state: FSMContext):
+    comment_text = message.text.strip()
+    await state.set_data({"comment": comment_text})
+    await state.set_state(FSM.FSMClient.memo)
+    await message.answer("Отлично!", reply_markup=client_markup.create_markup_memo_create_pdf())
+

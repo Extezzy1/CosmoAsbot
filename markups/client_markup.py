@@ -68,6 +68,22 @@ def create_markup_memo():
     return markup
 
 
+def create_markup_memo_recommendations():
+    buttons = [
+        [types.InlineKeyboardButton(text="Добавить комментарий", callback_data="add_comment")],
+        [types.InlineKeyboardButton(text="Подтвердить", callback_data="accept")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_memo_create_pdf():
+    buttons = [
+        [types.InlineKeyboardButton(text="Сформировать файл", callback_data="create_pdf")],
+        [types.InlineKeyboardButton(text="Добавление процедуры", callback_data="add_procedure")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
 
 
 def create_markup_subprocedures(sub_procedures):
