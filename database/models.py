@@ -3,14 +3,14 @@ import datetime
 from sqlalchemy.orm import relationship, mapped_column
 
 from .base import BaseModel
-from sqlalchemy import Column, Integer, VARCHAR, Date, Boolean, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, VARCHAR, Date, Boolean, ForeignKey, DateTime, Text, BigInteger
 
 
 class User(BaseModel):
 
     __tablename__ = "users"
 
-    user_id = Column(Integer, nullable=False, unique=True, primary_key=True)
+    user_id = Column(BigInteger, nullable=False, unique=True, primary_key=True)
     username = Column(VARCHAR(255), nullable=True, unique=False)
     fio = Column(VARCHAR(255), nullable=True, unique=False)
     phone = Column(VARCHAR(20), nullable=True, unique=False)

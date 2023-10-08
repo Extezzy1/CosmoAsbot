@@ -1,11 +1,11 @@
 from aiogram import types
-
+import config
 
 def create_markup_buy_rate():
     buttons = [
-        [types.InlineKeyboardButton(text="1 месяц", callback_data="buy_rate_1_month")],
-        [types.InlineKeyboardButton(text="6 месяцев", callback_data="buy_rate_6_month")],
-        [types.InlineKeyboardButton(text="12 месяцев", callback_data="buy_rate_12_month")],
+        [types.InlineKeyboardButton(text=f"1 месяц - {config.month_1_price / 100}₽", callback_data="buy_rate_1_month")],
+        [types.InlineKeyboardButton(text=f"6 месяцев - {config.month_6_price / 100}₽", callback_data="buy_rate_6_month")],
+        [types.InlineKeyboardButton(text=f"12 месяцев - {config.month_12_price / 100}₽", callback_data="buy_rate_12_month")],
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
@@ -24,7 +24,7 @@ def create_markup_main_menu():
 
 def create_markup_personal_account():
     buttons = [
-        [types.InlineKeyboardButton(text="Изменить данные аккаунта", callback_data="change_data_account")],
+        [types.InlineKeyboardButton(text="Изменить данные аккаунта (ФИО, телефон, почта)", callback_data="change_data_account")],
         [types.InlineKeyboardButton(text="Продлить подписку", callback_data="extend_subscribe")],
         [types.InlineKeyboardButton(text="Назад", callback_data="back")],
 
@@ -47,6 +47,7 @@ def create_markup_change_data_account():
 def create_markup_select_of_code():
     buttons = [
         [types.InlineKeyboardButton(text="Выбрать процедуру", switch_inline_query_current_chat="")],
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu")],
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
@@ -55,6 +56,7 @@ def create_markup_select_of_code():
 def create_markup_atlas():
     buttons = [
         [types.InlineKeyboardButton(text="Выбрать тему", switch_inline_query_current_chat="")],
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu")],
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
@@ -63,6 +65,7 @@ def create_markup_atlas():
 def create_markup_memo():
     buttons = [
         [types.InlineKeyboardButton(text="Выбрать процедуру", switch_inline_query_current_chat="")],
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu")],
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
@@ -88,5 +91,25 @@ def create_markup_memo_create_pdf():
 
 def create_markup_subprocedures(sub_procedures):
     buttons = [[types.InlineKeyboardButton(text=procedure[0].procedure_subname, callback_data=f"sub_procedure_{procedure[0].sub_procedure_id}")] for procedure in sub_procedures]
+    buttons.append(
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu")],
+    )
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_link_to_channel():
+    buttons = [
+        [types.InlineKeyboardButton(text="Подписаться", url=config.CHANNEL_LINK)],
+        [types.InlineKeyboardButton(text="Готово", callback_data="check_subscribe")],
+    ]
+    markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return markup
+
+
+def create_markup_back_to_main_menu():
+    buttons = [
+        [types.InlineKeyboardButton(text="Главное меню", callback_data="main_menu")],
+    ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
     return markup
