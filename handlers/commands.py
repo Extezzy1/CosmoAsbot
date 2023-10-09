@@ -80,7 +80,7 @@ async def get_email_user(message: Message, state: FSMContext) -> None:
     if is_validate:
         await state.update_data(email=email)
         await state.set_state(FSM.FSMClient.get_phone)
-        await message.answer("Теперь введите свой номер телефона")
+        await message.answer("Теперь введите свой номер телефона (+7...)")
     else:
         await message.answer("Электронная почта неверного формата, повторите ввод!")
 
@@ -145,11 +145,13 @@ async def successful_payment(message: Message, session: AsyncSession):
         # Добавляем подписку пользователя
         await session.merge(Subscribe(user_id=message.from_user.id, date_end=datetime.datetime.now() + datetime.timedelta(days=30 * int(count_month))))
         await message.answer("Вы успешно оплатили подписку!")
+        await message.answer_photo(photo=config.file_id_main_menu, reply_markup=client_markup.create_markup_main_menu())
     else:
         # Продляем подписку
         await session.execute(update(User).where(User.user_id == message.from_user.id).values(is_subscribe=True))
         await session.execute(update(Subscribe).where(Subscribe.user_id == message.from_user.id and Subscribe.is_active == True).values(date_end=Subscribe.date_end + datetime.timedelta(days=30 * int(count_month))))
         await message.answer("Ваша подписка продлена")
+        await message.answer_photo(photo=config.file_id_main_menu, reply_markup=client_markup.create_markup_main_menu())
     await session.commit()
 
 
@@ -222,15 +224,20 @@ async def select_of_codes(query: InlineQuery, session: AsyncSession, state: FSMC
 
     articles = []
     for item in query_answer_items:
-        if len(articles) <= 9:
-
-            articles.append(InlineQueryResultArticle(
-                id=str(randrange(1, 999999999)),
-                title=item.procedure_name,
-                input_message_content=InputTextMessageContent(message_text=f'/adProc {item.procedure_name}')
-            ))
-        else:
-            break
+        # if len(articles) <= 9:
+        #
+        #     articles.append(InlineQueryResultArticle(
+        #         id=str(randrange(1, 999999999)),
+        #         title=item.procedure_name,
+        #         input_message_content=InputTextMessageContent(message_text=f'/adProc {item.procedure_name}')
+        #     ))
+        # else:
+        #     break
+        articles.append(InlineQueryResultArticle(
+            id=str(randrange(1, 999999999)),
+            title=item.procedure_name,
+            input_message_content=InputTextMessageContent(message_text=f'/adProc {item.procedure_name}')
+        ))
     await query.answer(articles, cache_time=1, is_personal=True)
 
 
@@ -270,14 +277,19 @@ async def atlas(query: InlineQuery, session: AsyncSession, state: FSMContext):
 
     articles = []
     for item in query_answer_items:
-        if len(articles) <= 9:
-            articles.append(InlineQueryResultArticle(
-                id=str(randrange(1, 999999999)),
-                title=item.atlas_entry_text,
-                input_message_content=InputTextMessageContent(message_text=f'/adSubj {item.atlas_entry_text}')
-            ))
-        else:
-            break
+        # if len(articles) <= 9:
+        #     articles.append(InlineQueryResultArticle(
+        #         id=str(randrange(1, 999999999)),
+        #         title=item.atlas_entry_text,
+        #         input_message_content=InputTextMessageContent(message_text=f'/adSubj {item.atlas_entry_text}')
+        #     ))
+        # else:
+        #     break
+        articles.append(InlineQueryResultArticle(
+            id=str(randrange(1, 999999999)),
+            title=item.atlas_entry_text,
+            input_message_content=InputTextMessageContent(message_text=f'/adSubj {item.atlas_entry_text}')
+        ))
     await query.answer(articles, cache_time=1, is_personal=True)
 
 
@@ -314,15 +326,20 @@ async def memo(query: InlineQuery, session: AsyncSession, state: FSMContext):
 
     articles = []
     for item in query_answer_items:
-        if len(articles) <= 9:
-
-            articles.append(InlineQueryResultArticle(
-                id=str(randrange(1, 999999999)),
-                title=item.procedure_title,
-                input_message_content=InputTextMessageContent(message_text=f'/adProcMemo {item.procedure_title}')
-            ))
-        else:
-            break
+        # if len(articles) <= 9:
+        #
+        #     articles.append(InlineQueryResultArticle(
+        #         id=str(randrange(1, 999999999)),
+        #         title=item.procedure_title,
+        #         input_message_content=InputTextMessageContent(message_text=f'/adProcMemo {item.procedure_title}')
+        #     ))
+        # else:
+        #     break
+        articles.append(InlineQueryResultArticle(
+            id=str(randrange(1, 999999999)),
+            title=item.procedure_title,
+            input_message_content=InputTextMessageContent(message_text=f'/adProcMemo {item.procedure_title}')
+        ))
     await query.answer(articles, cache_time=1, is_personal=True)
 
 
