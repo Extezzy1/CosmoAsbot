@@ -161,6 +161,7 @@ async def successful_payment(message: Message, session: AsyncSession):
 async def change_fio(message: Message, session: AsyncSession, state: FSMContext, bot: Bot):
     fio = message.text.strip()
     await session.execute(update(User).where(User.user_id == message.from_user.id).values(fio=fio))
+    await message.delete()
     await message.answer_photo(photo=config.file_id_change_data, caption="ФИО было успешно изменено!", reply_markup=client_markup.create_markup_change_data_account())
     data = await state.get_data()
     msgs_id_delete: list = data.get("msgs_id_delete", False)
@@ -187,6 +188,7 @@ async def change_email(message: Message, session: AsyncSession, state: FSMContex
         smtp_debug=False)
     if is_validate:
         await session.execute(update(User).where(User.user_id == message.from_user.id).values(email=email))
+        await message.delete()
         await message.answer_photo(photo=config.file_id_change_data, caption="Почта была успешно изменена!",
                                    reply_markup=client_markup.create_markup_change_data_account())
         data = await state.get_data()
@@ -213,6 +215,7 @@ async def change_phone(message: Message, session: AsyncSession, state: FSMContex
         if phonenumbers.is_valid_number(phone_number):
             # Обновляем данные пользователя
             await session.execute(update(User).where(User.user_id == message.from_user.id).values(phone=phone))
+            await message.delete()
             await message.answer_photo(photo=config.file_id_change_data, caption="Телефон был успешно изменен!",
                                        reply_markup=client_markup.create_markup_change_data_account())
             data = await state.get_data()
@@ -275,17 +278,21 @@ async def adProc(message: Message, session: AsyncSession, state: FSMContext):
     procedure_id = procedure_id_result.fetchmany(1)[0][0].procedure_id
     sub_procedures_result = await session.execute(select(SubProcedures).where(SubProcedures.procedure_id == procedure_id))
     sub_procedures = sub_procedures_result.fetchall()
-
+    data = await state.get_data()
+    data["msgs_id_delete"].append(message.message_id)
     if len(sub_procedures) > 1:
         msg = await message.answer("Выберите подпроцедуру", reply_markup=client_markup.create_markup_subprocedures(sub_procedures))
-        await state.set_data({"msgs_id_delete": [msg.message_id]})
+        msgs_id_delete = data.get("msgs_id_delete", False)
+        if not msgs_id_delete:
+            data["msgs_id_delete"] = []
+        data["msgs_id_delete"].append(msg.message_id)
+        await state.set_data(data)
     else:
         sub_procedure = sub_procedures[0][0]
         caption = f"Наименование процедуры: <b>{sub_procedure.procedure_subname}</b>\n" \
               f"Номеклатура: <b>{sub_procedure.procedure_code}</b>\n\n" \
               f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
-        msg = await message.answer(caption, reply_markup=client_markup.create_markup_back_to_main_menu())
-        await state.set_data({"msgs_id_delete": [msg.message_id]})
+        await message.answer(caption, reply_markup=client_markup.create_markup_back_to_main_menu())
 
 
 @commands_router.inline_query(FSM.FSMClient.atlas)
@@ -336,8 +343,14 @@ async def adSubj(message: Message, session: AsyncSession, state: FSMContext):
         media_group.add_photo(media=photo[0].atlas_photo_id)
 
     msg_id = await message.answer_media_group(media_group.build())
-    await state.set_data({"msgs_id_delete": [msg.message_id for msg in msg_id]})
-
+    data = await state.get_data()
+    msgs_id_delete = data.get("msgs_id_delete", False)
+    if not msgs_id_delete:
+        data["msgs_id_delete"] = []
+    for msg in msg_id:
+        data["msgs_id_delete"].append(msg.message_id)
+    data["msgs_id_delete"].append(message.message_id)
+    await state.set_data(data)
     await message.answer(text="Нажмите на кнопку, чтобы вернуться в главное меню", reply_markup=client_markup.create_markup_back_to_main_menu())
 
 
@@ -387,17 +400,16 @@ async def adProcMemo(message: Message, session: AsyncSession, state: FSMContext)
     memo_title = memo_result_.memo_title
 
     data = await state.get_data()
+    data["msgs_id_delete"].append(message.message_id)
+    print(data)
     if not data.get("memo_id", False):
-        data = {"memo_id": [memo_result_.memo_id]}
+        data["memo_id"] = [memo_result_.memo_id]
     else:
         data["memo_id"].append(memo_result_.memo_id)
     msg = await message.answer(f"<b><u>{memo_title}</u></b>\n\n" + memo_text, parse_mode="HTML", reply_markup=client_markup.create_markup_memo_recommendations())
-    if not data.get("msgs_id_delete", False):
-        data["msgs_id_delete"] = [msg.message_id]
-    else:
-        data["msgs_id_delete"].append(msg.message_id)
-    await state.set_data(data)
+    data["msgs_id_delete"].append(msg.message_id)
 
+    await state.set_data(data)
 
 
 @commands_router.message(FSM.FSMClient.add_comment)
@@ -408,8 +420,6 @@ async def get_comment(message: Message, state: FSMContext):
     data[f"comment_{last_memo_id}"] = comment_text
     await state.set_state(FSM.FSMClient.memo)
     msg = await message.answer("Отлично!", reply_markup=client_markup.create_markup_memo_create_pdf())
-    if not data.get("msgs_id_delete", False):
-        data["msgs_id_delete"] = [msg.message_id]
-    else:
-        data["msgs_id_delete"].append(msg.message_id)
+    data["msgs_id_delete"].append(msg.message_id)
+    data["msgs_id_delete"].append(message.message_id)
     await state.set_data(data)

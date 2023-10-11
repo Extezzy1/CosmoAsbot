@@ -83,19 +83,19 @@ async def change_data(callback: CallbackQuery, state: FSMContext):
         # Изменяем ФИО
         await state.set_state(FSM.FSMClient.get_new_fio)
         msg = await callback.message.answer("Пришли мне новое ФИО")
-        await state.set_data({"msgs_id_delete": [msg.message_id]})
+        await state.set_data({"msgs_id_delete": [msg.message_id, callback.message.message_id]})
 
     elif data_split == "email":
         # Изменяем почту
         await state.set_state(FSM.FSMClient.get_new_email)
         msg = await callback.message.answer("Пришли мне новую почту")
-        await state.set_data({"msgs_id_delete": [msg.message_id]})
+        await state.set_data({"msgs_id_delete": [msg.message_id, callback.message.message_id]})
 
     else:
         # Изменяем телефон
         await state.set_state(FSM.FSMClient.get_new_phone)
         msg = await callback.message.answer("Пришли мне новый телефон")
-        await state.set_data({"msgs_id_delete": [msg.message_id]})
+        await state.set_data({"msgs_id_delete": [msg.message_id, callback.message.message_id]})
 
 
 @callbacks_router.callback_query(F.data == "personal_account")
@@ -120,6 +120,7 @@ async def main_menu(callback: CallbackQuery, state: FSMContext, bot: Bot):
                 await bot.delete_message(callback.from_user.id, msg)
             except Exception as ex:
                 print(ex)
+    await callback.message.delete()
     await state.clear()
     await callback.message.answer_photo(photo=config.file_id_main_menu, reply_markup=client_markup.create_markup_main_menu())
 
@@ -132,8 +133,9 @@ async def extend_subscribe(callback: CallbackQuery):
 @callbacks_router.callback_query(F.data == "select_of_code")
 async def select_of_code(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
-    await callback.message.answer_photo(photo=config.file_id_select_of_code, reply_markup=client_markup.create_markup_select_of_code())
+    msg = await callback.message.answer_photo(photo=config.file_id_select_of_code, reply_markup=client_markup.create_markup_select_of_code())
     await state.set_state(FSM.FSMClient.select_of_codes)
+    await state.set_data({"msgs_id_delete": [msg.message_id]})
 
 
 @callbacks_router.callback_query(F.data.startswith("sub_procedure_"))
@@ -144,24 +146,23 @@ async def sub_procedure(callback: CallbackQuery, session: AsyncSession, state: F
     caption = f"Наименование процедуры: <b>{sub_procedure.procedure_subname}</b>\n" \
           f"Номеклатура: <b>{sub_procedure.procedure_code}</b>\n\n" \
           f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
-    msg = await callback.message.answer(caption, reply_markup=client_markup.create_markup_back_to_main_menu())
-    data = await state.get_data()
-    data["msgs_id_delete"].append(msg.message_id)
-    await state.set_data(data)
+    await callback.message.answer(caption, reply_markup=client_markup.create_markup_back_to_main_menu())
 
 
 @callbacks_router.callback_query(F.data.startswith("atlas"))
 async def atlas(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
-    await callback.message.answer_photo(photo=config.file_id_atlas, reply_markup=client_markup.create_markup_atlas())
+    msg = await callback.message.answer_photo(photo=config.file_id_atlas, reply_markup=client_markup.create_markup_atlas())
     await state.set_state(FSM.FSMClient.atlas)
+    await state.set_data({"msgs_id_delete": [msg.message_id]})
 
 
 @callbacks_router.callback_query(F.data.startswith("memo"))
 async def memo(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
-    await callback.message.answer_photo(photo=config.file_id_memo, reply_markup=client_markup.create_markup_atlas())
+    msg = await callback.message.answer_photo(photo=config.file_id_memo, reply_markup=client_markup.create_markup_atlas())
     await state.set_state(FSM.FSMClient.memo)
+    await state.set_data({"msgs_id_delete": [msg.message_id]})
 
 
 @callbacks_router.callback_query(F.data == "add_comment")
@@ -207,13 +208,7 @@ async def create_pdf(callback: CallbackQuery, state: FSMContext, session: AsyncS
         pdfs.append(pdf)
 
     total_pdf = merge_pdf_files(pdfs, callback.from_user.id)
-    msg = await callback.message.answer_document(document=aiogram.types.FSInputFile(total_pdf), reply_markup=client_markup.create_markup_back_to_main_menu())
-
-    data = await state.get_data()
-    if not data.get("msgs_id_delete", False):
-        data["msgs_id_delete"] = [msg.message_id]
-    else:
-        data["msgs_id_delete"].append(msg.message_id)
+    await callback.message.answer_document(document=aiogram.types.FSInputFile(total_pdf), reply_markup=client_markup.create_markup_back_to_main_menu())
 
     await state.set_data(data)
 
