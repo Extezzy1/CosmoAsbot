@@ -1,0 +1,14 @@
+[Unit]
+Description=CosmoAsBot
+After=network.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+WorkingDirectory=/home/cosmoasbot/
+ExecStart=/home/cosmoasbot/venv/bin/python main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

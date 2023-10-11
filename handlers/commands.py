@@ -88,6 +88,8 @@ async def get_email_user(message: Message, state: FSMContext) -> None:
 @commands_router.message(FSM.FSMClient.get_phone)
 async def get_phone_user(message: Message, state: FSMContext, session: AsyncSession) -> None:
     phone = message.text.strip()
+    if phone[0] == '8':
+        phone = '+7' + phone[1:]
     try:
         phone_number = phonenumbers.parse(phone)
         if phonenumbers.is_valid_number(phone_number):
@@ -156,16 +158,24 @@ async def successful_payment(message: Message, session: AsyncSession):
 
 
 @commands_router.message(FSM.FSMClient.get_new_fio)
-async def change_fio(message: Message, session: AsyncSession, state: FSMContext):
+async def change_fio(message: Message, session: AsyncSession, state: FSMContext, bot: Bot):
     fio = message.text.strip()
     await session.execute(update(User).where(User.user_id == message.from_user.id).values(fio=fio))
     await message.answer_photo(photo=config.file_id_change_data, caption="ФИО было успешно изменено!", reply_markup=client_markup.create_markup_change_data_account())
+    data = await state.get_data()
+    msgs_id_delete: list = data.get("msgs_id_delete", False)
+    if msgs_id_delete:
+        for msg in msgs_id_delete:
+            try:
+                await bot.delete_message(message.from_user.id, msg)
+            except Exception as ex:
+                print(ex)
     await state.clear()
     await session.commit()
 
 
 @commands_router.message(FSM.FSMClient.get_new_email)
-async def change_email(message: Message, session: AsyncSession, state: FSMContext):
+async def change_email(message: Message, session: AsyncSession, state: FSMContext, bot: Bot):
     email = message.text.strip()
     is_validate = validate(
         email_address=email.strip(),
@@ -179,7 +189,14 @@ async def change_email(message: Message, session: AsyncSession, state: FSMContex
         await session.execute(update(User).where(User.user_id == message.from_user.id).values(email=email))
         await message.answer_photo(photo=config.file_id_change_data, caption="Почта была успешно изменена!",
                                    reply_markup=client_markup.create_markup_change_data_account())
-
+        data = await state.get_data()
+        msgs_id_delete: list = data.get("msgs_id_delete", False)
+        if msgs_id_delete:
+            for msg in msgs_id_delete:
+                try:
+                    await bot.delete_message(message.from_user.id, msg)
+                except Exception as ex:
+                    print(ex)
         # await message.answer("Почта была успешно изменена!",
         #                      reply_markup=client_markup.create_markup_change_data_account())
         await state.clear()
@@ -189,7 +206,7 @@ async def change_email(message: Message, session: AsyncSession, state: FSMContex
 
 
 @commands_router.message(FSM.FSMClient.get_new_phone)
-async def change_phone(message: Message, session: AsyncSession, state: FSMContext):
+async def change_phone(message: Message, session: AsyncSession, state: FSMContext, bot: Bot):
     phone = message.text.strip()
     try:
         phone_number = phonenumbers.parse(phone)
@@ -198,6 +215,14 @@ async def change_phone(message: Message, session: AsyncSession, state: FSMContex
             await session.execute(update(User).where(User.user_id == message.from_user.id).values(phone=phone))
             await message.answer_photo(photo=config.file_id_change_data, caption="Телефон был успешно изменен!",
                                        reply_markup=client_markup.create_markup_change_data_account())
+            data = await state.get_data()
+            msgs_id_delete: list = data.get("msgs_id_delete", False)
+            if msgs_id_delete:
+                for msg in msgs_id_delete:
+                    try:
+                        await bot.delete_message(message.from_user.id, msg)
+                    except Exception as ex:
+                        print(ex)
             # await message.answer("Телефон был успешно изменен!",
             #                      reply_markup=client_markup.create_markup_change_data_account())
             await session.commit()
@@ -223,6 +248,7 @@ async def select_of_codes(query: InlineQuery, session: AsyncSession, state: FSMC
                 query_answer_items.append(item[0])
 
     articles = []
+    query_answer_items = sorted(query_answer_items, key=lambda x: x.procedure_name)
     for item in query_answer_items:
         # if len(articles) <= 9:
         #
@@ -243,7 +269,6 @@ async def select_of_codes(query: InlineQuery, session: AsyncSession, state: FSMC
 
 @commands_router.message(Command("adProc"))
 async def adProc(message: Message, session: AsyncSession, state: FSMContext):
-    await state.clear()
     text = message.text
     text_without_command = " ".join(text.split(" ")[1:])
     procedure_id_result = await session.execute(select(Procedures).where(Procedures.procedure_name == text_without_command))
@@ -252,13 +277,15 @@ async def adProc(message: Message, session: AsyncSession, state: FSMContext):
     sub_procedures = sub_procedures_result.fetchall()
 
     if len(sub_procedures) > 1:
-        await message.answer("Выберите подпроцедуру", reply_markup=client_markup.create_markup_subprocedures(sub_procedures))
+        msg = await message.answer("Выберите подпроцедуру", reply_markup=client_markup.create_markup_subprocedures(sub_procedures))
+        await state.set_data({"msgs_id_delete": [msg.message_id]})
     else:
         sub_procedure = sub_procedures[0][0]
-        msg = f"Наименование процедуры: <b>{sub_procedure.procedure_subname}</b>\n" \
+        caption = f"Наименование процедуры: <b>{sub_procedure.procedure_subname}</b>\n" \
               f"Номеклатура: <b>{sub_procedure.procedure_code}</b>\n\n" \
               f"Описание: <b>{sub_procedure.procedure_description if sub_procedure.procedure_description is not None else '-'}</b>"
-        await message.answer(msg, reply_markup=client_markup.create_markup_back_to_main_menu())
+        msg = await message.answer(caption, reply_markup=client_markup.create_markup_back_to_main_menu())
+        await state.set_data({"msgs_id_delete": [msg.message_id]})
 
 
 @commands_router.inline_query(FSM.FSMClient.atlas)
@@ -276,6 +303,7 @@ async def atlas(query: InlineQuery, session: AsyncSession, state: FSMContext):
                 query_answer_items.append(item[0])
 
     articles = []
+    query_answer_items = sorted(query_answer_items, key=lambda x: x.atlas_entry_text)
     for item in query_answer_items:
         # if len(articles) <= 9:
         #     articles.append(InlineQueryResultArticle(
@@ -295,7 +323,7 @@ async def atlas(query: InlineQuery, session: AsyncSession, state: FSMContext):
 
 @commands_router.message(Command("adSubj"))
 async def adSubj(message: Message, session: AsyncSession, state: FSMContext):
-    await state.clear()
+
     text = message.text
     text_without_command = " ".join(text.split(" ")[1:])
     atlas_entry_result = await session.execute(select(Atlas).where(Atlas.atlas_entry_text == text_without_command))
@@ -307,7 +335,9 @@ async def adSubj(message: Message, session: AsyncSession, state: FSMContext):
     for photo in atlas_photos:
         media_group.add_photo(media=photo[0].atlas_photo_id)
 
-    await message.answer_media_group(media_group.build())
+    msg_id = await message.answer_media_group(media_group.build())
+    await state.set_data({"msgs_id_delete": [msg.message_id for msg in msg_id]})
+
     await message.answer(text="Нажмите на кнопку, чтобы вернуться в главное меню", reply_markup=client_markup.create_markup_back_to_main_menu())
 
 
@@ -325,6 +355,7 @@ async def memo(query: InlineQuery, session: AsyncSession, state: FSMContext):
                 query_answer_items.append(item[0])
 
     articles = []
+    query_answer_items = sorted(query_answer_items, key=lambda x: x.procedure_title)
     for item in query_answer_items:
         # if len(articles) <= 9:
         #
@@ -360,9 +391,13 @@ async def adProcMemo(message: Message, session: AsyncSession, state: FSMContext)
         data = {"memo_id": [memo_result_.memo_id]}
     else:
         data["memo_id"].append(memo_result_.memo_id)
+    msg = await message.answer(f"<b><u>{memo_title}</u></b>\n\n" + memo_text, parse_mode="HTML", reply_markup=client_markup.create_markup_memo_recommendations())
+    if not data.get("msgs_id_delete", False):
+        data["msgs_id_delete"] = [msg.message_id]
+    else:
+        data["msgs_id_delete"].append(msg.message_id)
     await state.set_data(data)
 
-    await message.answer(f"<b><u>{memo_title}</u></b>\n\n" + memo_text, parse_mode="HTML", reply_markup=client_markup.create_markup_memo_recommendations())
 
 
 @commands_router.message(FSM.FSMClient.add_comment)
@@ -371,7 +406,10 @@ async def get_comment(message: Message, state: FSMContext):
     data = await state.get_data()
     last_memo_id = data["memo_id"][-1]
     data[f"comment_{last_memo_id}"] = comment_text
-    await state.set_data(data)
     await state.set_state(FSM.FSMClient.memo)
-    await message.answer("Отлично!", reply_markup=client_markup.create_markup_memo_create_pdf())
-
+    msg = await message.answer("Отлично!", reply_markup=client_markup.create_markup_memo_create_pdf())
+    if not data.get("msgs_id_delete", False):
+        data["msgs_id_delete"] = [msg.message_id]
+    else:
+        data["msgs_id_delete"].append(msg.message_id)
+    await state.set_data(data)

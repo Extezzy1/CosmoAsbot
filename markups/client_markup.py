@@ -13,9 +13,9 @@ def create_markup_buy_rate():
 
 def create_markup_main_menu():
     buttons = [
-        [types.InlineKeyboardButton(text="Памятка", callback_data="memo")],
-        [types.InlineKeyboardButton(text="Подбор кодов", callback_data="select_of_code")],
-        [types.InlineKeyboardButton(text="Атлас", callback_data="atlas")],
+        [types.InlineKeyboardButton(text="Памятка для пациентов", callback_data="memo")],
+        [types.InlineKeyboardButton(text="Подбор кодов и диагнозов", callback_data="select_of_code")],
+        [types.InlineKeyboardButton(text="Атлас анатомии", callback_data="atlas")],
         [types.InlineKeyboardButton(text="Личный кабинет", callback_data="personal_account")],
     ]
     markup = types.InlineKeyboardMarkup(inline_keyboard=buttons)
